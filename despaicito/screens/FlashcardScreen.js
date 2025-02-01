@@ -1,28 +1,19 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
-export default function FlashcardScreen({ route }) {
+export default function FlashcardScreen({ route, navigation }) {
   const { flashcards } = route.params;
   const [index, setIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [selectedAnswer, setSelectedAnswer] = useState(null); // Doğru/yanlış seçimi için state
-  const [answerVisible, setAnswerVisible] = useState(false); // Cevabı Gör butonunu yönetmek için
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [answerVisible, setAnswerVisible] = useState(false);
 
   const nextCard = () => {
     setShowAnswer(false);
-    setSelectedAnswer(null); // Yeni karta geçince renk sıfırla
-    setAnswerVisible(false); // Yeni kartta Cevabı Gör butonu tekrar aktif hale gelsin
-    if (index < flashcards.length - 1) {
-      setIndex(index + 1);
-    }
-  };
-
-  const prevCard = () => {
-    setShowAnswer(false);
     setSelectedAnswer(null);
     setAnswerVisible(false);
-    if (index > 0) {
-      setIndex(index - 1);
+    if (index < flashcards.length - 1) {
+      setIndex(index + 1);
     }
   };
 
@@ -32,6 +23,11 @@ export default function FlashcardScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* Geri Dön Butonu */}
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <Text style={styles.buttonText}>← Geri</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>Flashcard {index + 1}/{flashcards.length}</Text>
 
       <View 
@@ -92,13 +88,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', 
     padding: 20
   },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    padding: 10,
+    backgroundColor: '#6c757d',
+    borderRadius: 8,
+  },
   title: { 
     fontSize: 22, 
     marginBottom: 20 
   },
   card: { 
     width: '100%', 
-    height: 500,  // Sabit yükseklik 
+    height: 500, 
     padding: 30, 
     borderWidth: 2, 
     borderRadius: 10, 
@@ -112,10 +116,10 @@ const styles = StyleSheet.create({
     elevation: 5
   },
   correctCard: {
-    backgroundColor: '#28a745', // Yeşil
+    backgroundColor: '#28a745',
   },
   wrongCard: {
-    backgroundColor: '#dc3545', // Kırmızı
+    backgroundColor: '#dc3545',
   },
   cardText: { 
     fontSize: 20, 
@@ -123,7 +127,6 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   answerText: { 
-
     fontSize: 18, 
     marginTop: 200, 
     color: '#444', 
@@ -158,7 +161,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#007bff', 
     borderRadius: 5 
   },
-
   buttonText: { 
     color: '#fff', 
     fontSize: 16 
