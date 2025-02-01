@@ -38,6 +38,11 @@ export default function HomeScreen({ navigation, setIsLoggedIn }) {
     ],
   };
 
+  const handleLogout = () => {
+    setIsLoggedIn(false); // Kullanıcı giriş durumunu sıfırla
+    navigation.navigate('Login'); // Geri kayma animasyonu ile giriş ekranına yönlendir
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Dersler</Text>
@@ -58,7 +63,7 @@ export default function HomeScreen({ navigation, setIsLoggedIn }) {
       />
 
       {/* Çıkış Yap Butonu */}
-      <TouchableOpacity onPress={() => setIsLoggedIn(false)} style={styles.logoutButton}>
+      <TouchableOpacity onPress={() => setIsLoggedIn(false) } style={styles.logoutButton}>
         <Text style={styles.buttonText}>Çıkış Yap</Text>
       </TouchableOpacity>
     </View>
