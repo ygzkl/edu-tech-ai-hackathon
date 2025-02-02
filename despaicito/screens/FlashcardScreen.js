@@ -85,7 +85,7 @@ export default function FlashcardScreen({ route, navigation }) {
     if (isKnown) {
       if (repetitions === 0) {
         // İlk doğru: 10 dakika sonra tekrar (10/1440 gün)
-        newInterval = 10 / 1440;
+        newInterval = 1440 / 1440;
       } else if (repetitions === 1) {
         // İkinci doğru: 1 gün sonra tekrar
         newInterval = 1;
@@ -125,14 +125,13 @@ export default function FlashcardScreen({ route, navigation }) {
     let timeStr;
     if (interval < 1) {
       const minutes = Math.round(interval * 1440);
-      timeStr = `${minutes} dakika`;
+      timeStr = `Birazdan`;
     } else if (interval === 1) {
-      timeStr = `1 gün`;
+      timeStr = `1 gün sonra`;
     } else {
-      timeStr = `${interval} gün`;
+      timeStr = `${interval} gün sonra`;
     }
-    const wrongStr = isWrong ? ' (yanlış, tekrar edilecek)' : '';
-    return `${timeStr} sonra tekrar sorulacak${wrongStr}.\n(Tekrar zamanı: ${getNextReviewTime(interval)})`;
+    return `${timeStr} tekrar edilecek.\n(Tekrar zamanı: ${getNextReviewTime(interval)})`;
   };
 
 
