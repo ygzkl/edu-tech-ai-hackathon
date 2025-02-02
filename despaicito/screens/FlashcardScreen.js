@@ -1,123 +1,134 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function FlashcardScreen({ route, navigation }) {
+  // route.params.flashcards içindeki soruları local state'e alıyoruz
   const { flashcards } = route.params;
+
+  // Soru listesi: ilk turda doğrudan `flashcards`,
+  // ikinci turda `wrongAnswers` olacak şekilde güncellenecek.
+  const [flashcardList, setFlashcardList] = useState(flashcards);
+
+  // Kaçıncı soruda olduğumuzu tutan indeks
   const [index, setIndex] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
+
+  // İlk turda yanlış cevap verilen soruları tutacak dizi
+  const [wrongAnswers, setWrongAnswers] = useState([]);
+
+  // İlk tur mu, ikinci tur mu kontrolü
+  const [isSecondPass, setIsSecondPass] = useState(false);
+
+  // Ekrana cevabı gösterme kontrolü
   const [answerVisible, setAnswerVisible] = useState(false);
-  const [scheduledTimes, setScheduledTimes] = useState({});
-  const [easeFactor, setEaseFactor] = useState(2.5);
-  const [intervalDays, setIntervalDays] = useState(0);
-  const [repeatMessage, setRepeatMessage] = useState('');
 
-  useEffect(() => {
-    loadFlashcardData();
-  }, []);
+  // Ekrana ipucu gösterme kontrolü
+  const [showHint, setShowHint] = useState(false);
 
-  const loadFlashcardData = async () => {
-    try {
-      const storedData = await AsyncStorage.getItem('flashcard_schedules');
-      if (storedData) {
-        setScheduledTimes(JSON.parse(storedData));
-      }
-    } catch (error) {
-      console.error('Veri yüklenirken hata oluştu:', error);
-    }
-  };
-
-  const saveFlashcardData = async (newData) => {
-    try {
-      await AsyncStorage.setItem('flashcard_schedules', JSON.stringify(newData));
-    } catch (error) {
-      console.error('Veri kaydedilirken hata oluştu:', error);
-    }
-  };
-
+  // Her cevap sonrasında çalışacak fonksiyon
   const handleAnswer = (isCorrect) => {
-    let newEaseFactor = easeFactor;
-    let newIntervalDays = intervalDays;
-
-    if (isCorrect) {
-      if (intervalDays === 0) {
-        newIntervalDays = 1 / 1440; // 1 dakika sonra tekrar göster
-      } else if (intervalDays < 1) {
-        newIntervalDays = 1; // 1 gün sonra göster
-      } else {
-        newEaseFactor = Math.max(1.3, newEaseFactor + 0.1);
-        newIntervalDays *= newEaseFactor; // Zaman aralığını artır
-      }
-    } else {
-      newEaseFactor = Math.max(1.3, newEaseFactor - 0.2); // Yanlışta faktörü azalt
-      newIntervalDays = 0; // Yanlışta hemen tekrar göster
-      setRepeatMessage('Bu kart tekrar edilecek.');
+    // Yanlış cevap verildiyse, bu soruyu wrongAnswers dizisine ekle
+    if (!isCorrect) {
+      setWrongAnswers((prev) => [...prev, flashcardList[index]]);
     }
 
-    const updatedSchedule = { ...scheduledTimes, [flashcards[index].question]: newIntervalDays };
+    // Sonraki soruya geçiş
+    const nextIndex = index + 1;
 
-    setEaseFactor(newEaseFactor);
-    setIntervalDays(newIntervalDays);
-    setScheduledTimes(updatedSchedule);
-    saveFlashcardData(updatedSchedule);
-
-    setShowAnswer(false);
+    // Ekrandaki ipucunu ve cevabı sakla
+    setShowHint(false);
     setAnswerVisible(false);
 
-    moveToNextCard(updatedSchedule);
-  };
-
-  const moveToNextCard = (updatedSchedule) => {
-    const remainingCards = flashcards.filter(
-      (q) => !updatedSchedule[q.question] || updatedSchedule[q.question] <= 1
-    );
-
-    if (remainingCards.length === 0) {
-      setIndex(-1); // Tüm kartlar bitti, ekranı kapat
+    // Eğer sıradaki soru var ise ona geç
+    if (nextIndex < flashcardList.length) {
+      setIndex(nextIndex);
     } else {
-      setIndex(flashcards.indexOf(remainingCards[0]));
-      setRepeatMessage('');
+      // Eğer ilk tur tamamlandıysa ve yanlış sorular varsa ikinci tura başla
+      if (!isSecondPass && wrongAnswers.length > 0) {
+        setFlashcardList(wrongAnswers);
+        setIndex(0);
+        setWrongAnswers([]);
+        setIsSecondPass(true);
+      } else {
+        // İkinci tur da bitti veya yanlış soru yok
+        // Artık index'i -1 yaparak "Bitti" ekranına geçebiliriz
+        setIndex(-1);
+      }
     }
   };
 
+  // Tüm sorular bitip index = -1 olursa gösterilecek ekran
   if (index === -1) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Yarın tekrar gel!</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.backButton}>
+        <Text style={styles.title}>Tüm soruları tamamladın!</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Home')}
+          style={styles.backButton}
+        >
           <Text style={styles.buttonText}>← Derslere Geri Dön</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  // Normal flashcard ekranı
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
         <Text style={styles.buttonText}>← Geri</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Flashcard {index + 1}/{flashcards.length}</Text>
+      <Text style={styles.title}>
+        {/* İkinci turdaysak bunu da belirtebiliriz (opsiyonel) */}
+        {isSecondPass ? 'Tekrar Tur' : 'Flashcard'} {index + 1}/{flashcardList.length}
+      </Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardText}>{flashcards[index].question}</Text>
-        {answerVisible && <Text style={styles.answerText}>{flashcards[index].answer}</Text>}
+        <Text style={styles.cardText}>{flashcardList[index].question}</Text>
+
+        {/* İpucu gösterme */}
+        {showHint && flashcardList[index].hint && (
+          <Text style={styles.hintText}>İpucu: {flashcardList[index].hint}</Text>
+        )}
+
+        {/* Cevap gösterme */}
+        {answerVisible && (
+          <Text style={styles.answerText}>{flashcardList[index].answer}</Text>
+        )}
       </View>
 
-      {repeatMessage ? <Text style={styles.repeatText}>{repeatMessage}</Text> : null}
-
+      {/* Eğer cevabı henüz göstermediysek: İpucu ve "Cevabı Gör" butonları */}
       {!answerVisible && (
-        <TouchableOpacity onPress={() => setAnswerVisible(true)} style={styles.showAnswerButton}>
-          <Text style={styles.buttonText}>Cevabı Gör</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            onPress={() => setShowHint(true)}
+            style={styles.hintButton}
+          >
+            <Text style={styles.buttonText}>İpucu</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setAnswerVisible(true)}
+            style={styles.showAnswerButton}
+          >
+            <Text style={styles.buttonText}>Cevabı Gör</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
+      {/* Cevap görünüyorsa Doğru / Yanlış butonlarını göster */}
       {answerVisible && (
         <View style={styles.answerButtons}>
-          <TouchableOpacity onPress={() => handleAnswer(true)} style={[styles.answerButton, styles.correctButton]}>
+          <TouchableOpacity
+            onPress={() => handleAnswer(true)}
+            style={[styles.answerButton, styles.correctButton]}
+          >
             <Text style={styles.buttonText}>Doğru</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleAnswer(false)} style={[styles.answerButton, styles.wrongButton]}>
+          <TouchableOpacity
+            onPress={() => handleAnswer(false)}
+            style={[styles.answerButton, styles.wrongButton]}
+          >
             <Text style={styles.buttonText}>Yanlış</Text>
           </TouchableOpacity>
         </View>
@@ -127,18 +138,89 @@ export default function FlashcardScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 20 },
-  backButton: { position: 'absolute', top: 50, left: 20, padding: 10, backgroundColor: '#6c757d', borderRadius: 8 },
-  title: { fontSize: 22, marginBottom: 20 },
-  card: { width: '90%', height: 200, padding: 30, borderWidth: 2, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  cardText: { fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
-  answerText: { fontSize: 18, marginTop: 20, color: '#444', textAlign: 'center' },
-  showAnswerButton: { padding: 15, backgroundColor: '#ffc107', borderRadius: 8, marginTop: 10 },
-  answerButtons: { flexDirection: 'row', marginTop: 10 },
-  answerButton: { padding: 15, margin: 5, borderRadius: 5, width: 100, alignItems: 'center' },
-  correctButton: { backgroundColor: '#28a745' },
-  wrongButton: { backgroundColor: '#dc3545' },
-  buttonText: { color: '#fff', fontSize: 16 },
-  repeatText: { marginTop: 10, fontSize: 16, color: '#dc3545' },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    padding: 10,
+    backgroundColor: '#6c757d',
+    borderRadius: 8,
+  },
+  title: {
+    fontSize: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  card: {
+    width: '90%',
+    height: 300,
+    padding: 30,
+    borderWidth: 2,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  cardText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  hintText: {
+    fontSize: 16,
+    marginTop: 20,
+    color: '#555',
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  answerText: {
+    fontSize: 18,
+    marginTop: 20,
+    color: '#444',
+    textAlign: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
+  hintButton: {
+    padding: 15,
+    backgroundColor: '#17a2b8',
+    borderRadius: 8,
+    marginHorizontal: 5,
+  },
+  showAnswerButton: {
+    padding: 15,
+    backgroundColor: '#ffc107',
+    borderRadius: 8,
+    marginHorizontal: 5,
+  },
+  answerButtons: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
+  answerButton: {
+    padding: 15,
+    margin: 5,
+    borderRadius: 5,
+    width: 100,
+    alignItems: 'center',
+  },
+  correctButton: {
+    backgroundColor: '#28a745',
+  },
+  wrongButton: {
+    backgroundColor: '#dc3545',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
 });
-
