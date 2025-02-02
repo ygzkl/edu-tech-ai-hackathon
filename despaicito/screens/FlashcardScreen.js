@@ -24,6 +24,7 @@ export default function FlashcardScreen({ route, navigation }) {
   // Ekrana ipucu gösterme kontrolü
   const [showHint, setShowHint] = useState(false);
 
+  
   // Her cevap sonrasında çalışacak fonksiyon
   const handleAnswer = (isCorrect) => {
     // Yanlış cevap verildiyse, bu soruyu wrongAnswers dizisine ekle
