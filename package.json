@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@aws-sdk/client-bedrock": "^3.738.0",
-    "mysql2": "^3.12.0"
-  }
-}
