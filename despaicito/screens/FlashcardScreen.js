@@ -10,7 +10,6 @@ export default function FlashcardScreen({ route, navigation }) {
   const [answerVisible, setAnswerVisible] = useState(false);
   const [showHint, setShowHint] = useState(false);
 
-  // SM‑2 ile ilgili değerler (her kart için ayrı tutulabilir; örnekte tek set değer kullanılıyor)
   const [easeFactor, setEaseFactor] = useState(2.5);
   const [intervalDays, setIntervalDays] = useState(0); // hesaplanan interval (gün cinsinden)
   const [repetitions, setRepetitions] = useState(0);
@@ -27,17 +26,31 @@ export default function FlashcardScreen({ route, navigation }) {
     loadFlashcardData();
   }, []);
 
-  // AsyncStorage’dan önceki tekrar zamanlarını yükle
   const loadFlashcardData = async () => {
     try {
       const storedData = await AsyncStorage.getItem('flashcard_schedules');
-      if (storedData) {
-        setScheduledTimes(JSON.parse(storedData));
+      let parsedData = storedData ? JSON.parse(storedData) : {};
+  
+      // Şu anki zamanın timestamp'ini al
+      const now = Date.now();
+  
+      // Tekrar zamanı gelen veya olmayan kartları seç
+      const availableCards = flashcards.filter((card) => {
+        if (!parsedData[card.question]) return true; // Eğer kart hiç planlanmamışsa dahil et
+        return parsedData[card.question].timestamp <= now; // Eğer süresi geçmişse dahil et
+      });
+  
+      // Eğer tekrar edilmesi gereken kart yoksa, index'i -1 yap
+      if (availableCards.length === 0) {
+        setIndex(-1);
+      } else {
+        setScheduledTimes(parsedData);
       }
     } catch (error) {
       console.error('Veri yüklenirken hata oluştu:', error);
     }
   };
+  
 
   // Yeni tekrar zamanlarını AsyncStorage’a kaydet
   const saveFlashcardData = async (newData) => {
@@ -49,12 +62,9 @@ export default function FlashcardScreen({ route, navigation }) {
   };
 
   /**
-   * SM‑2 algoritmasının uyarlanmış versiyonu (ikili değerlendirme)
-   *
    * "Doğru" (Biliyorum) seçeneğinde:
-   *   - İlk doğru: 10 dakika sonra tekrar (10/1440 gün)
-   *   - İkinci doğru: 1 gün sonra tekrar
-   *   - Üçüncü ve sonrası: önceki interval * ease factor (yuvarlanarak)
+   *   - İlk doğru: 1 gün sonra tekrar
+   *   - İkinci ve sonrası: önceki interval * ease factor (yuvarlanarak)
    *   - Repetitions 1 artar, ease factor +0.1 artar.
    *
    * "Yanlış" (Bilmiyorum) seçeneğinde:
@@ -111,10 +121,6 @@ export default function FlashcardScreen({ route, navigation }) {
     return nextTime.toLocaleString();
   };
 
-  /**
-   * Kullanıcıya gösterilecek mesajı oluşturur.
-   * Örneğin: "10 dakika sonra tekrar sorulacak. (Tekrar zamanı: ...)"
-   */
   const formatIntervalMessage = (interval, isWrong) => {
     let timeStr;
     if (interval < 1) {
@@ -129,18 +135,7 @@ export default function FlashcardScreen({ route, navigation }) {
     return `${timeStr} sonra tekrar sorulacak${wrongStr}.\n(Tekrar zamanı: ${getNextReviewTime(interval)})`;
   };
 
-  /**
-   * Kullanıcının "Doğru" veya "Yanlış" seçimine göre SM‑2 değerlerini günceller,
-   * flashcard için bir sonraki tekrar zamanını hesaplar ve scheduledTimes nesnesine ekler.
-   *
-   * Eğer cevap doğruysa:
-   *   - Hesaplanan interval kadar gelecek bir timestamp oluşturulur,
-   *     wrong: false olarak işaretlenir.
-   *
-   * Eğer cevap yanlışsa:
-   *   - Interval 0 olduğu için timestamp = şimdi olarak ayarlanır,
-   *     fakat wrong: true olarak işaretlenir (böylece moveToNextCard’da diğer kartlardan sonra gösterilir).
-   */
+
   const handleAnswer = (isKnown) => {
     const { interval, repetitions: newReps, easeFactor: newEF } = updateSM2(
       isKnown,
@@ -149,7 +144,6 @@ export default function FlashcardScreen({ route, navigation }) {
       intervalDays
     );
 
-    // Yeni SM‑2 değerlerini state’e aktar
     setRepetitions(newReps);
     setEaseFactor(newEF);
     setIntervalDays(interval);
@@ -174,13 +168,6 @@ export default function FlashcardScreen({ route, navigation }) {
     setPendingSchedule(updatedSchedule);
   };
 
-  /**
-   * "Sonraki Kart" butonuna basıldığında, pendingSchedule ile kalan flashcard'lar arasında,
-   * **sadece tekrar zamanı gelmiş kartlar** (yani, scheduledTimes[card].timestamp <= şimdi) seçilir.
-   *
-   * Ayrıca, eğer bazı kartlar yanlış cevaplanmışsa (wrong: true) bunlar sıralamada en sona alınır;
-   * böylece önce doğru cevabı bekleyen, sonrasında yanlış cevaplanan kartlar gösterilir.
-   */
   const handleNextCard = () => {
     if (pendingSchedule) {
       moveToNextCard(pendingSchedule);
@@ -193,32 +180,26 @@ export default function FlashcardScreen({ route, navigation }) {
 
   const moveToNextCard = (updatedSchedule) => {
     const now = Date.now();
-    // Tüm kartlardan, scheduledTimes yoksa veya timestamp geçmişse (tekrar zamanı gelmişse) uygun kartları seç.
     const availableCards = flashcards.filter((card) => {
       if (!updatedSchedule[card.question]) return true;
       return updatedSchedule[card.question].timestamp <= now;
     });
-
+  
     if (availableCards.length === 0) {
-      // Hiç uygun kart kalmadıysa seansı bitir.
-      setIndex(-1);
+      setIndex(-1); // Eğer tekrar edilmesi gereken kart yoksa, tamamlandı mesajı göster
     } else {
-      // Önce "doğru" (wrong:false) kartlar, ardından "yanlış" (wrong:true) kartlar sıralanır.
       availableCards.sort((a, b) => {
         const aWrong = updatedSchedule[a.question]?.wrong ? 1 : 0;
         const bWrong = updatedSchedule[b.question]?.wrong ? 1 : 0;
         return aWrong - bWrong;
       });
-      // İlk uygun kartı seç.
       setIndex(flashcards.indexOf(availableCards[0]));
-      // Yeni kart için SM‑2 başlangıç değerlerini sıfırla (her kart ayrı değerlendirilebilir)
       setRepetitions(0);
       setEaseFactor(2.5);
       setIntervalDays(0);
     }
   };
-
-  // Eğer index -1 ise, tüm kartlar tamamlanmış demektir.
+  
   if (index === -1) {
     return (
       <View style={styles.container}>
@@ -300,7 +281,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   title: {
-    fontSize: 22,
+    fontSize: 45,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -308,28 +289,29 @@ const styles = StyleSheet.create({
     width: '90%',
     height: 500,
     padding: 30,
-    borderWidth: 2,
-    borderRadius: 10,
+    borderWidth: 5,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
   cardText: {
-    fontSize: 20,
+    fontSize: 25,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   hintText: {
-    fontSize: 16,
-    marginTop: 20,
-    color: '#555',
+    fontSize: 20,
+    marginTop: 40,
+    marginBottom: 40,
+    color: '#888',
     fontStyle: 'italic',
     textAlign: 'center',
   },
   answerText: {
-    fontSize: 18,
-    marginTop: 100,
-    color: '#444',
+    fontSize: 30,
+    marginTop: 20,
+    color: '#222',
     textAlign: 'center',
   },
   buttonRow: {

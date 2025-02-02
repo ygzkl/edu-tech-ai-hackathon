@@ -7,8 +7,6 @@ export default function HomeScreen({ navigation, setIsLoggedIn }) {
     { id: 2, name: 'Fizik' },
     { id: 3, name: 'Kimya' },
     { id: 4, name: 'Biyoloji' },
-    { id: 5, name: 'Tarih' },
-    { id: 6, name: 'Edebiyat' },
   ];
 
   const flashcards = {
@@ -55,15 +53,7 @@ export default function HomeScreen({ navigation, setIsLoggedIn }) {
       { question: "Protein sentezinin başlama kodonu nedir?", answer: "AUG", hint: "Metiyonin amino asidini kodlayan üçlü" },
       { question: "DNA'nın belirli bölgelerini kesen enzimlere ne ad verilir?", answer: "restriksiyon endonükleaz", hint: "Genetik mühendisliğinde kullanılan moleküler makas" },
     ],
-    
-    Tarih: [
-      { question: 'İstanbul hangi yılda fethedildi?', answer: '1453' },
-      { question: 'Cumhuriyet hangi yılda ilan edildi?', answer: '1923' },
-    ],
-    Edebiyat: [
-      { question: 'Divan edebiyatında önemli bir şair kimdir?', answer: 'Fuzuli' },
-      { question: 'Orhun Kitabeleri hangi döneme aittir?', answer: 'Göktürkler' },
-    ],
+  
   };
 
   const handleLogout = () => {
